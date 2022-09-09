@@ -1,0 +1,17 @@
+﻿  Checking Build System
+  CMake is re-running because X:/CS/2022ComputerGraphics/ImageEditing/ImageEditing/build/CMakeFiles/generate.stamp is out-of-date.
+    the file 'X:/CS/2022ComputerGraphics/ImageEditing/ImageEditing/CMakeLists.txt'
+    is newer than 'X:/CS/2022ComputerGraphics/ImageEditing/ImageEditing/build/CMakeFiles/generate.stamp.depend'
+    result='-1'
+  CMake Deprecation Warning at CMakeLists.txt:1 (cmake_minimum_required):
+    Compatibility with CMake < 2.8.12 will be removed from a future version of
+    CMake.
+  
+    Update the VERSION argument <min> value or use a ...<max> suffix to tell
+    CMake that the project does not need compatibility with older versions.
+  
+  
+  -- Selecting Windows SDK version 10.0.19041.0 to target Windows 10.0.22000.
+  -- Configuring done
+  -- Generating done
+  -- Build files have been written to: X:/CS/2022ComputerGraphics/ImageEditing/ImageEditing/build

@@ -1,0 +1,6 @@
+﻿  Building Custom Rule X:/CS/2022ComputerGraphics/ImageEditing/ImageEditing/CMakeLists.txt
+  libtarga.c
+X:\CS\2022ComputerGraphics\ImageEditing\ImageEditing\src\libtarga.c(216,17): warning C4996: 'fopen': This function or variable may be unsafe. Consider using fopen_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+X:\CS\2022ComputerGraphics\ImageEditing\ImageEditing\src\libtarga.c(517,11): warning C4996: 'fopen': This function or variable may be unsafe. Consider using fopen_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+X:\CS\2022ComputerGraphics\ImageEditing\ImageEditing\src\libtarga.c(663,11): warning C4996: 'fopen': This function or variable may be unsafe. Consider using fopen_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+  libtarga.vcxproj -> X:\CS\2022ComputerGraphics\ImageEditing\ImageEditing\build\Debug\libtarga.lib
