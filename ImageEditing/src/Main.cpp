@@ -22,13 +22,14 @@
 #include "TargaImage.h"
 #include "ImageWidget.h"
 #include "ScriptHandler.h"
+#include "ProjTest.h"
 
-
+#define test
 using namespace std;
 
 // constants
-const char      c_sNames[]          = "-names";             // display student names command line switch
-const char      c_sHeadless[]       = "-headless";          // headless command line switch
+const char      c_sNames[] = "-names";             // display student names command line switch
+const char      c_sHeadless[] = "-headless";          // headless command line switch
 
 // globals
 std::vector<char*>  vsStudentNames;
@@ -43,7 +44,9 @@ std::vector<char*>  vsStudentNames;
 void MakeNames()
 {
     // ************ ADD YOUR NAME HERE ****************************************
-    vsStudentNames.push_back("±i®a·ç");
+    vsStudentNames.push_back("B11015021 linshijie");
+    vsStudentNames.push_back("B11015037 linkaijie");
+    vsStudentNames.push_back("B11015043 changjiaray");
 }// MakeNames
 
 
@@ -64,7 +67,7 @@ void DisplayNames()
 //      Argument processing callback. Does nothing at this point.
 //
 ///////////////////////////////////////////////////////////////////////////////
-static int Arg_Callback(int argc, char *argv[], int &i)
+static int Arg_Callback(int argc, char* argv[], int& i)
 {
     return 0;
 }// Arg_Callback
@@ -76,7 +79,7 @@ static int Arg_Callback(int argc, char *argv[], int &i)
 //  handle the scripts given on the command line.  Otherwise create our window.
 //
 ///////////////////////////////////////////////////////////////////////////////
-int main(int argc, char *argv[])
+int main(int argc, char* argv[])
 {
     int script_arg;
 
@@ -84,10 +87,10 @@ int main(int argc, char *argv[])
     // the first non-switch argument, which if not 0 or argc is the
     // location of the script file name in the argument list.
     Fl::args(argc, argv, script_arg, Arg_Callback);
-    if ( script_arg == 0 )
+    if (script_arg == 0)
     {
-        cout <<  "Error: Unrecognised argument.\n";
-	    return 1;
+        cout << "Error: Unrecognised argument.\n";
+        return 1;
     }
 
     script_arg = 1;
@@ -99,36 +102,40 @@ int main(int argc, char *argv[])
     TargaImage* pImage = NULL;
     bool bHeadless = false;
 
-    for (int i = script_arg; i < argc; ++i)
-    {
+#ifdef test
+    ProjTest::Test();
+    system("pause");
+    return 0;
+#endif
+
+    for (int i = script_arg; i < argc; ++i) {
+        //load D:\Team\NTUST\graphic\ImageEditing\Images\wiz.tga
         if (!strcmp(argv[i], c_sNames))                                 // display names
             DisplayNames();
         else if (!bHeadless && !strcmp(argv[i], c_sHeadless))           // go headless
             bHeadless = true;
         else if (bHeadless && strcmp(argv[i], c_sHeadless))             // run script file
             CScriptHandler::HandleScriptFile(argv[i], pImage);
-        else
-        {
+        else {
             cerr << "Usage:" << endl << "Project1 [-names] [-headless scriptFilenames . . .]" << endl;
             return 0;
         }// else
     }// for
 
     // print name reminder
-//    if (vsStudentNames.empty())
-//        cout << "This project has no author names.  Please add your" << endl
-//             << "name in MakeNames in Main.cpp.  If you do not" << endl
-//             << "comply, you will not be in compliance.  Have a nice day." << endl;
+    if (vsStudentNames.empty())
+        cout << "This project has no author names.  Please add your" << endl
+        << "name in MakeNames in Main.cpp.  If you do not" << endl
+        << "comply, you will not be in compliance.  Have a nice day." << endl;
 
     // run the gui if we're not headless
-    if (!bHeadless)
-    {
+    if (!bHeadless) {
         // using the gui so create our window and the image widget
         Fl_Window   window(350, 100, "CS559 Project 1");
         Fl::visual(FL_RGB);
         window.begin();
-            ImageWidget* pWidget = new ImageWidget(0, 0, 350, 100, "Image");
-            window.add(pWidget);
+        ImageWidget* pWidget = new ImageWidget(0, 0, 350, 100, "Image");
+        window.add(pWidget);
         window.end();
 
         window.show(argc, argv);
@@ -138,5 +145,3 @@ int main(int argc, char *argv[])
 
     return 0;
 }// main
-
-

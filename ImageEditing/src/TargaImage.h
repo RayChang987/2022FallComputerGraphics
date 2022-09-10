@@ -99,6 +99,8 @@ class TargaImage
        vector<mat> img_RGBA;
        vector<mat> img_RGBA_H;
 
+       bool Compare(TargaImage* pImage);
+
 
 };
 
