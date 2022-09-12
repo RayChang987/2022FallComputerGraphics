@@ -1,9 +1,0 @@
-﻿  TargaImage.cpp
-X:\CS\2022ComputerGraphics\ImageEditing\ImageEditing\src\TargaImage.cpp(224,44): warning C4244: '正在初始化': 將 'double' 轉換為 'unsigned char'，由於類型不同，可能導致資料遺失
-X:\CS\2022ComputerGraphics\ImageEditing\ImageEditing\src\TargaImage.cpp(265,16): warning C4244: 'return': 將 'double' 轉換為 'int'，由於類型不同，可能導致資料遺失
-X:\CS\2022ComputerGraphics\ImageEditing\ImageEditing\src\TargaImage.cpp(270,21): warning C4244: '正在初始化': 將 'double' 轉換為 'int'，由於類型不同，可能導致資料遺失
-X:\CS\2022ComputerGraphics\ImageEditing\ImageEditing\src\TargaImage.cpp(298,20): warning C4244: '正在初始化': 將 'double' 轉換為 'int'，由於類型不同，可能導致資料遺失
-X:\CS\2022ComputerGraphics\ImageEditing\ImageEditing\src\TargaImage.cpp(838,21): warning C4267: '正在初始化': 將 'size_t' 轉換為 'int'，資料可能遺失
-X:\CS\2022ComputerGraphics\ImageEditing\ImageEditing\src\TargaImage.cpp(838,38): warning C4267: '正在初始化': 將 'size_t' 轉換為 'int'，資料可能遺失
-X:\CS\2022ComputerGraphics\ImageEditing\ImageEditing\src\TargaImage.cpp(838,54): warning C4267: '正在初始化': 將 'size_t' 轉換為 'int'，資料可能遺失
-  ImageEditing.vcxproj -> X:\CS\2022ComputerGraphics\ImageEditing\ImageEditing\build\Debug\ImageEditing.exe
