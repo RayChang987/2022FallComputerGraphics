@@ -212,7 +212,7 @@ TargaImage* TargaImage::Load_Image(char* filename)
 ///////////////////////////////////////////////////////////////////////////////
 
 
-bool TargaImage::To_Grayscale()
+bool TargaImage::To_Grayscale()  // passed
 {
     /*ClearToBlack();
     return false;*/
@@ -238,7 +238,7 @@ bool TargaImage::To_Grayscale()
 //  success of operation.
 //
 ///////////////////////////////////////////////////////////////////////////////
-bool TargaImage::Quant_Uniform()
+bool TargaImage::Quant_Uniform() //tested
 {
     /*ClearToBlack();
     return false;*/
@@ -266,7 +266,7 @@ bool TargaImage::Quant_Uniform()
 int L2(int r1, int r2, int b1, int b2, int g1, int g2) {
     return (r2 - r1) * (r2 - r1) + (b2 - b1) * (b2 - b1) + (g2 - g1) * (g2 - g1);
 }
-bool TargaImage::Quant_Populosity()
+bool TargaImage::Quant_Populosity() //tested
 {
     data_to_imgRGBA();
     const int mxN = 4e4;
@@ -324,7 +324,7 @@ bool TargaImage::Quant_Populosity()
 //      Dither the image using a threshold of 1/2.  Return success of operation.
 //
 ///////////////////////////////////////////////////////////////////////////////
-bool TargaImage::Dither_Threshold()
+bool TargaImage::Dither_Threshold()//tested
 {
     data_to_imgRGBA();
     for (int i = 0; i < height; i++)
@@ -392,7 +392,7 @@ bool TargaImage::Compare(TargaImage* pImage) {
 //      Dither image using random dithering.  Return success of operation.
 //
 ///////////////////////////////////////////////////////////////////////////////
-bool TargaImage::Dither_Random()
+bool TargaImage::Dither_Random()//tested
 {
     srand(time(NULL));
     data_to_imgRGBA();
@@ -428,7 +428,7 @@ bool TargaImage::Dither_Random()
 //  operation.
 //
 ///////////////////////////////////////////////////////////////////////////////
-bool TargaImage::Dither_FS()
+bool TargaImage::Dither_FS() //tested
 {
     data_to_imgRGBA();
     vector<vector<float>> d(height, vector<float>(width));
@@ -500,7 +500,7 @@ bool TargaImage::Dither_FS()
 //  success of operation.
 //
 ///////////////////////////////////////////////////////////////////////////////
-bool TargaImage::Dither_Bright()
+bool TargaImage::Dither_Bright()//tested
 {
     data_to_imgRGBA();
     float sum = 0;
@@ -555,7 +555,7 @@ bool TargaImage::Dither_Bright()
 //      Perform clustered differing of the image.  Return success of operation.
 //
 ///////////////////////////////////////////////////////////////////////////////
-bool TargaImage::Dither_Cluster()
+bool TargaImage::Dither_Cluster()//tested
 {
     data_to_imgRGBA();
     float mask[4][4] = {
@@ -590,10 +590,111 @@ bool TargaImage::Dither_Cluster()
 //  Return success of operation.
 //
 ///////////////////////////////////////////////////////////////////////////////
+vector<int> _3_bit_color = { 0, 36, 73, 109, 146, 182, 219, 235 };
+vector<int> _2_bit_color = { 0, 85, 170, 255 };
+int _3_bit_color_closest(int x) {
+    int mn = INT_MAX, mnI = -1;
+    for (int i = 0; i < 8; ++i) {
+        int d = abs(_3_bit_color[i] - x);
+        if (d < mn) {
+            mn = d;
+            mnI = i;
+        }
+    }
+    if (mnI == -1) { cerr << x << endl; system("PAUSE"); }
+    return mnI;
+}
+int _2_bit_color_closest(int x) {
+    int mn = INT_MAX, mnI = -1;
+    for (int i = 0; i < 4; ++i) {
+        int d = abs(_2_bit_color[i] - x);
+        if (d < mn) {
+            mn = d;
+            mnI = i;
+        }
+    }
+    if (mnI == -1) { cerr << x << endl; system("PAUSE"); }
+    return mnI;
+}
 bool TargaImage::Dither_Color()
 {
-    ClearToBlack();
-    return false;
+    data_to_imgRGBA();
+    vector<vector<vector<float>>> d(4, vector<vector<float>>(height, vector<float>(width)));
+    for (int i = 0; i < 4; ++i) {
+        for (int j = 0; j < height; ++j) {
+            for (int k = 0; k < width; ++k) {
+                d[i][j][k] = img_RGBA[i][j][k];
+            }
+        }
+    }
+
+    for (int k = 0; k < 3; ++k) {
+        for (int i = 0; i < height; i++) {
+            if (i % 2 == 0) {
+                for (int j = 0; j < width; j++)
+                {
+                    int idx = (k == 2) ? _2_bit_color_closest(d[k][i][j]): _3_bit_color_closest(d[k][i][j]);
+                    float cmp = (k == 2) ? _2_bit_color[idx] : _3_bit_color[idx];
+                    float result;
+                    if (k == 2) {
+                        if (d[k][i][j]>=cmp) {result = cmp;}
+                        else {result = _2_bit_color[idx - 1];}
+                    }
+                    else {
+                        if (d[k][i][j] >= cmp) { result = cmp; }
+                        else { result = _3_bit_color[idx - 1]; }
+                    }
+                    float error = d[k][i][j] - result;
+
+                    img_RGBA[k][i][j] = result;
+                    if (i + 1 < height && j > 0) {
+                        d[k][i + 1][j - 1] += error * ((float)3 / 16);
+                    }
+                    if (i + 1 < height) {
+                        d[k][i + 1][j] += error * ((float)5 / 16);
+                    }
+                    if (i + 1 < height && j + 1 < width) {
+                        d[k][i + 1][j + 1] += error * ((float)1 / 16);
+                    }
+                    if (j + 1 < width) {
+                        d[k][i][j + 1] += error * ((float)7 / 16);
+                    }
+
+                }
+            }
+            else {
+                for (int j = width - 1; j >= 0; j--) {
+                    int idx = (k == 2) ? _2_bit_color_closest(d[k][i][j]) : _3_bit_color_closest(d[k][i][j]);
+                    float cmp = (k == 2) ? _2_bit_color[idx] : _3_bit_color[idx];
+                    float result;
+                    if (k == 2) {
+                        if (d[k][i][j] >= cmp) { result = cmp; }
+                        else { result = _2_bit_color[idx - 1]; }
+                    }
+                    else {
+                        if (d[k][i][j] >= cmp) { result = cmp; }
+                        else { result = _3_bit_color[idx - 1]; }
+                    }
+                    float error = d[k][i][j] - result;
+                    if (i + 1 < height && j + 1 < width) {
+                        d[k][i + 1][j + 1] += error * ((float)3 / 16);
+                    }
+                    if (i + 1 < height) {
+                        d[k][i + 1][j] += error * ((float)5 / 16);
+                    }
+                    if (i + 1 < height && j > 0) {
+                        d[k][i + 1][j - 1] += error * ((float)1 / 16);
+                    }
+                    if (j > 0) {
+                        d[k][i][j - 1] += error * ((float)7 / 16);
+                    }
+                }
+            }
+        }
+    }
+    
+    imgRGBA_to_data();
+    return true;
 }// Dither_Color
 
 
@@ -1237,14 +1338,49 @@ bool TargaImage::Rotate(float angleDegrees)
 
         }
     }
+    vector<vector<vector<int>>> t2(4, vector<vector<int>>(height, vector<int>(width)));
+    for (int i = 0; i < height; ++i) {
+        for (int j = 0; j < width; ++j) {
+            for (int k = 0; k < 4; ++k) {
+                t2[k][i][j] = img_RGBA[k][i][j];
+            }
+        }
+    }
+    float kernel[4][4] = {
+        {1, 2, 2, 1},
+        {2, 4, 4, 2},
+        {2, 4, 4, 2},
+        {1, 2, 2, 1}
+    };
+    float d = 0;
+    for (int i = 0; i < 4; ++i) {
+        for (int j = 0; j < 4; ++j) {
+            d += kernel[i][j];
+        }
+    }
+    for (int i = 0; i < height; i++) {
+        for (int j = 0; j < width; j++) {
+            for (int k = 0; k < 4; k++) {
+                float sum = 0;
+                for (int p = -2; p < 2; ++p) {
+                    for (int q = -2; q < 2; ++q) {
+                        int ni = i + p, nj = j + q;
+                        if (ni < 0 || nj < 0 || ni >= height || nj >= width) { continue; }
+                        sum += t2[k][ni][nj] * kernel[p + 2][q + 2];
+                    }
+                }
+                img_RGBA[k][i][j] = sum / d;
+            }
+
+        }
+    }
     imgRGBA_to_data();
-    bool o = Filter_Bartlett();
     return true;
 }// Rotate
 
 
 //////////////////////////////////////////////////////////////////////////////
-//
+//`
 //      Given a single RGBA pixel return, via the second argument, the RGB
 //      equivalent composited with a black background.
 //
