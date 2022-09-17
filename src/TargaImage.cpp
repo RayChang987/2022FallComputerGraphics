@@ -214,8 +214,6 @@ TargaImage* TargaImage::Load_Image(char* filename)
 
 bool TargaImage::To_Grayscale()  // passed
 {
-    /*ClearToBlack();
-    return false;*/
     data_to_imgRGBA();
 
     for (int i = 0; i < height; i++)
@@ -240,8 +238,6 @@ bool TargaImage::To_Grayscale()  // passed
 ///////////////////////////////////////////////////////////////////////////////
 bool TargaImage::Quant_Uniform() //tested
 {
-    /*ClearToBlack();
-    return false;*/
     data_to_imgRGBA();
     for (int i = 0; i < height; i++)
     {
@@ -269,7 +265,6 @@ int L2(int r1, int r2, int b1, int b2, int g1, int g2) {
 bool TargaImage::Quant_Populosity() //tested
 {
     data_to_imgRGBA();
-    const int mxN = 4e4;
     map<int, int> feq;
     using pixel = vector<int>;
     for (int i = 0; i < height; i++)
@@ -282,9 +277,7 @@ bool TargaImage::Quant_Populosity() //tested
     }
     vector<pair<int, int>> colors(feq.begin(), feq.end());
     vector<pixel> decoded_colors;
-    sort(colors.begin(), colors.end(), [](const pair<int, int>& a, const  pair<int, int>& b) {
-        return a.second > b.second;
-        });
+    sort(colors.begin(), colors.end(), [](const pair<int, int>& a, const  pair<int, int>& b) {return a.second > b.second;});
     int colorN = 256;
     for (int i = 0; i < colorN; ++i) {
         int r = (colors[i].first >> 10);
@@ -292,10 +285,8 @@ bool TargaImage::Quant_Populosity() //tested
         int g = (colors[i].first >> 5);
         colors[i].first -= (g << 5);
         int b = colors[i].first;
-        // colors.push_back({ (unsigned char)r, (unsigned char)g, (unsigned char)b });
         decoded_colors.push_back({ (r << 3), (g << 3), (b << 3) });
     }
-    //cout << colors.size() << endl;
     for (int i = 0; i < height; ++i) {
         for (int j = 0; j < width; ++j) {
             int mn = 1e9, mnI = -1;
@@ -342,27 +333,6 @@ bool TargaImage::Dither_Threshold()//tested
 
         }
     }
-    ////for (int i = 0; i < height; i++)
-    ////{
-    ////    for (int j = 0; j < width; j++)
-    ////    {
-    ////        float r = img_RGBA[0][i][j], g = img_RGBA[1][i][j], b = img_RGBA[2][i][j];
-    ////        float gray_scale_value = (0.299 * r + 0.587 * g + 0.114 * b);
-    ////        mx = max(gray_scale_value, mx);
-    ////        mn = min(gray_scale_value, mn);
-    ////        img_RGBA[0][i][j] = img_RGBA[1][i][j] = img_RGBA[2][i][j] = gray_scale_value;
-    ////    }
-    ////}
-    //for (int i = 0; i < height; ++i) {
-    //    for (int j = 0; j < width; ++j) {
-    //        if ((img_RGBA[0][i][j] - mn) / (mx - mn) > 0.5) {
-    //            img_RGBA[0][i][j] = img_RGBA[1][i][j] = img_RGBA[2][i][j] = 255;
-    //        }
-    //        else {
-    //            img_RGBA[0][i][j] = img_RGBA[1][i][j] = img_RGBA[2][i][j] = 0;
-    //        }
-    //    }
-    //}
     imgRGBA_to_data();
     return true;
 }// Dither_Threshold
@@ -395,9 +365,8 @@ bool TargaImage::Compare(TargaImage* pImage) {
 bool TargaImage::Dither_Random()//tested
 {
     srand(time(NULL));
+
     data_to_imgRGBA();
-
-
     for (int i = 0; i < height; i++)
     {
         for (int j = 0; j < width; j++)
@@ -522,17 +491,12 @@ bool TargaImage::Dither_Bright()//tested
 
     int number_of_1 = (int)(sum / 256);
     float threshold = gray_scale_values[number_of_1] / 256;
-    //for (int i = 0; i < number_of_1 + 10; ++i) {
-    //    cout << gray_scale_values[i] << " ";
-    //}
-    //cout << endl;
     cout << "Using Threshold : " << threshold << endl;
     float cnt = 0;
     for (int i = 0; i < height; ++i) {
         for (int j = 0; j < width; ++j) {
             float r = img_RGBA[0][i][j], g = img_RGBA[1][i][j], b = img_RGBA[2][i][j];
             float gray_scale_value = floor(0.299 * r + 0.587 * g + 0.114 * b) / 256;
-            //0.409803
             if (gray_scale_value >= threshold) {
                 img_RGBA[0][i][j] = img_RGBA[1][i][j] = img_RGBA[2][i][j] = 255;
                 cnt += 255;
@@ -1033,7 +997,7 @@ bool TargaImage::Filter_Gaussian_N(unsigned int N)
                     for (int q = -r; q <= r; ++q) {
                         int ni = i + p, nj = j + q;
                         if (ni < 0 || nj < 0 || ni >= height || nj >= width) { continue; } //not neccessary
-                        sum += t[k][ni][nj] * kernel[p + kernelN/2][q + kernelN/2];
+                        sum += t[k][ni][nj] * kernel[p + r][q + r];
                     }
                 }
                 img_RGBA[k][i][j] = sum / d;
