@@ -157,6 +157,8 @@ class Maze {
 		float z_near = 0.01f, z_far = 200.0f;  
 		float t_modelviewGL[16], t_viewerviewGL[16];
 		float t_modelview[16], t_viewerview[16];
+		void LookAt(float,float,float,float,float,float,float,float,float);
+		void Perspective(float, float, float, float);
 };
 
 

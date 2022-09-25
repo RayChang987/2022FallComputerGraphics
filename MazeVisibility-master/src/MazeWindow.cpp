@@ -66,6 +66,7 @@ Set_Maze(Maze *m)
 //   otherwise needs to be redrawn.
 //=========================================================================
 # define M_PI           3.14159265358979323846
+
 void MazeWindow::
 draw(void)
 //=========================================================================
@@ -182,17 +183,8 @@ draw(void)
 		}*/
 		//
 		//cerr << "My: " << endl;
-		/*LookAt_2D(viewer_pos[Maze::X], viewer_pos[Maze::Y], viewer_pos[Maze::Z],
-			viewer_pos[Maze::X] + sin(Maze::To_Radians(maze->viewer_dir)), viewer_pos[Maze::Y], viewer_pos[Maze::Z] + cos(Maze::To_Radians(maze->viewer_dir)));
-		for (int i = 0; i < 4; ++i) {
-			for (int j = 0; j < 4; ++j) {
-				cout << t_modelview[i * 4 + j] << " ";
-			}
-			cout << endl;
-		}
-		cerr << "Comparaion End" << endl;
-		cerr << "---------------------------" << endl;*/
-		maze->Draw_View(focal_length);
+		
+		maze->Draw_View(aspect);
 
 	}
 }

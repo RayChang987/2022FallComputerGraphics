@@ -656,6 +656,7 @@ float t_viewerview[16] = { 2.4142, 0, 0, 0, 0, 2.4142, 0, 0,0,0,-1.0001, -0.0200
 bool clip(LineSeg frustum_side, float* start, float* end) {
 	char s_side = frustum_side.Point_Side(start[0], start[2]);
 	char e_side = frustum_side.Point_Side(end[0], end[2]);
+
 	if (s_side == Edge::RIGHT) {
 		if (e_side == Edge::LEFT) {
 			float percent = frustum_side.Cross_Param(LineSeg(start, end));
@@ -673,25 +674,20 @@ bool clip(LineSeg frustum_side, float* start, float* end) {
 	}
 	return true;
 }
-void LookAt_2D(float posX, float posY, float posZ, float centerX, float centerY, float centerZ) {
-	double norm = sqrt(pow(centerX - posX, 2) + pow(centerZ - posZ, 2));
-	double _cos = ((centerZ - posZ) / norm) * (-1);
-	double _sin = sqrt(1.0 - (_cos) * (_cos));
-	//cerr << _cos << endl;
-
-	double T[4] = { 0, 0, 0, 0 };
-	double center[4] = { posX, posY, posZ, 1 };
-	t_modelview[0] = _cos; t_modelview[1] = 0; t_modelview[2] = _sin; t_modelview[3] = 0;
-	t_modelview[4] = 0; t_modelview[5] = 1; t_modelview[6] = 0; t_modelview[7] = 0;
-	t_modelview[8] = -_sin; t_modelview[9] = 0; t_modelview[10] = _cos; t_modelview[11] = 0;
-	t_modelview[12] = 0; t_modelview[13] = 0; t_modelview[14] = 0; t_modelview[15] = 1;
-	for (int j = 0; j < 4; ++j) {
-		for (int k = 0; k < 4; ++k) {
-			T[j] += t_modelview[j * 4 + k] * center[k];
-		}
-	}
-	t_modelview[3] = -T[0], t_modelview[7] = T[1], t_modelview[11] = -T[2];
+#define square(x) ((x)*(x))
+void Normalize3x1(float* x) {
+	float Norm = sqrt(square(x[0]) + square(x[1]) + square(x[2]));
+	x[0] /= Norm;
+	x[1] /= Norm;
+	x[2] /= Norm;
 }
+
+void ComputeNormalOfPlane(float* result, float* A, float* B) {
+	result[0] = A[1] * B[2] - A[2] * B[1];
+	result[1] = A[2] * B[0] - A[0] * B[2];
+	result[2] = A[0] * B[1] - A[1] * B[0];
+}
+
 void check44(float* a) {
 	for (int i = 0; i < 4; ++i) {
 		for (int j = 0; j < 4; ++j) {
@@ -709,8 +705,61 @@ void transpose44(float* a) {
 		}
 	}
 }
+
+void Maze::LookAt(float posX, float posY, float posZ, float centerX, float centerY, float centerZ, float upX, float upY, float upZ) {
+	float center[3] = { centerX, centerY, centerZ };
+	float pos[3] = { posX, posY, posZ };
+	float up[3] = { upX, upY, upZ };
+	float L[3], S[3], U[3];
+	float M[16];
+	float T[16];
+	for (int i = 0; i < 3; ++i) {
+		L[i] = center[i] - pos[i];
+	}
+	Normalize3x1(L);
+	
+	//for (int i = 0; i < 3; ++i) { cout << L[i] << " "; }cout << endl;
+	ComputeNormalOfPlane(S, L, up);
+	//for (int i = 0; i < 3; ++i) { cout << S[i] << ","; }cout << endl;
+	//for (int i = 0; i < 3; ++i) { cout << L[i] << ","; }cout << endl;
+	//for (int i = 0; i < 3; ++i) { cout << up[i] << ","; }cout << endl;
+	Normalize3x1(S);
+	ComputeNormalOfPlane(U, S, L);
+	//for (int i = 0; i < 3; ++i) { cout << U[i] << ","; }cout << endl;
+	
+	for (int i = 0; i < 4; ++i) {
+		for (int j = 0; j < 4; ++j) {
+			if (i == j) { T[i * 4 + j] = 1.0; }
+			else { T[i * 4 + j] = 0.0; }
+		}
+	}
+	T[3] = -posX, T[7] = -posY, T[11] = -posZ;
+	M[0] = S[0]; M[4] = S[1]; M[8] = S[2]; M[12] = 0.0;
+	M[1] = up[0]; M[5] = up[1]; M[9] = up[2]; M[13] = 0.0;
+	M[2] = -L[0]; M[6] = -L[1]; M[10] = -L[2]; M[14] = 0.0; //negative z
+	M[3] = M[7] = M[11] = 0.0;     M[15] = 1.0;
+	transpose44(M);
+	
+	matrix_mul_4x4(M, T, t_modelview);
+
+
+	//check44(T); 
+	//check44(M); 
+	//check44(t_modelview);
+	//system("PAUSE");
+}
+void Maze::Perspective(float fov, float aspect, float zNear,float zFar) {
+	for (int i = 0; i < 16; ++i) { t_viewerview[i] = 0; }
+	float f = 1.0 / tan(To_Radians(fov/2));
+	t_viewerview[0] = f/ aspect;
+	t_viewerview[5] = f;
+	t_viewerview[10] = (zFar + zNear) / (zNear - zFar);
+	t_viewerview[11] = (2 * zFar * zNear) / (zNear - zFar);
+	t_viewerview[14] = -1;
+
+}
 void Maze::
-Draw_View(const float focal_dist)
+Draw_View(const float aspect)
 //======================================================================
 {
 
@@ -724,128 +773,23 @@ Draw_View(const float focal_dist)
 	//glEnable(GL_DEPTH_TEST);
 	//cout << num_edges << endl;
 	//float t_modelviewGL[16], t_viewerviewGL[16];
-		
+	
+
 	glGetFloatv(GL_MODELVIEW_MATRIX, t_modelviewGL);
 	glGetFloatv(GL_PROJECTION_MATRIX, t_viewerviewGL);
 	transpose44(t_modelviewGL);
 	transpose44(t_viewerviewGL);
-	for (int i = 0; i < 4; ++i) { cout << t_modelviewGL[i] << " "; }cout << endl;
+	//for (int i = 0; i < 4; ++i) { cout << t_modelviewGL[i] << " "; }cout << endl;
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
-	//
-	//for (int i = 0; i < (int)this->num_edges; ++i) {
-	//	float edge_start[2] = {
-	//		this->edges[i]->endpoints[Edge::START]->posn[Vertex::X],
-	//		this->edges[i]->endpoints[Edge::START]->posn[Vertex::Y]
-	//	};
-	//	float edge_end[2] = {
-	//		this->edges[i]->endpoints[Edge::END]->posn[Vertex::X],
-	//		this->edges[i]->endpoints[Edge::END]->posn[Vertex::Y]
-	//	};
-
-	//	float color[3] = { this->edges[i]->color[0], this->edges[i]->color[1], this->edges[i]->color[2] };
-	//	float T1[16];
-	//	float viewer_pos[3] = { viewer_posn[Maze::Y], 0.0f, viewer_posn[Maze::X] };
-	//	LookAt_2D(
-	//		viewer_pos[X], 0.0, viewer_pos[Z],
-	//		viewer_pos[X] + sin(Maze::To_Radians(viewer_dir)), viewer_pos[Maze::Y], viewer_pos[Maze::Z] + cos(Maze::To_Radians(viewer_dir))
-	//	);
-
-	//	//float t_modelviewGL[16], t_viewerviewGL[16];
-	//	//glGetFloatv(GL_MODELVIEW_MATRIX, t_modelviewGL);
-	//	//glGetFloatv(GL_PROJECTION_MATRIX, t_viewerviewGL);
-	//	//for (int i = 0; i < 4; ++i) { cout << t_viewportGL[i] << " "; }cout << endl;
-
-	//	//cerr << "----------------" << endl;
-	//	//check44(t_modelviewGL);
-	//	//cerr << "comp" << endl;
-	//	//check44(t_modelview);
-	//	//cerr << "----------------" << endl;
-	//	//cout << endl;
-	//	//cerr << "----------------" << endl;
-	//	//check44(t_viewerviewGL);
-	//	//cerr << "comp" << endl;
-	//	//check44(t_viewerview);
-	//	//cerr << "----------------" << endl;
-
-
-
-	//	matrix_mul_4x4(t_viewerviewGL, t_modelviewGL, T1);
-	//	
-	//	//check44(T);
-	//	//system("PAUSE");
-	//	float start[4] = { edge_start[1] ,1.0f, edge_start[0], 1.0f };
-	//	float end[4] = { edge_end[1], 1.0f, edge_end[0], 1.0f };
-	//	float start_t[4], end_t[4];
-
-	//	input4x4(T1, start, start_t);
-	//	input4x4(T1, end, end_t);
-
-	//
-
-	//	//for (int i = 0; i < 3; ++i) {
-	//	//	start_t[i] /= start_t[3];
-	//	//	end_t[i] /= end_t[3];
-	//	//}
-	//	//if (start_t[3] < 0.01 || end_t[3] < 0.01) { continue; }
-	//	if (this->edges[i]->opaque) {
-	//		for (int i = 0; i < 4; ++i) { cout << start_t[i] << " "; }cout << endl;
-	//		for (int i = 0; i < 4; ++i) { cout << end_t[i] << " "; }cout << endl;
-	//		cout << endl;
-	//		
-	//		for (int i = 0; i < 4; ++i) {cout << start_t[i] << " ";}cout << endl;
-	//		glBegin(GL_POLYGON);
-	//		glColor3fv(color);
-
-	//		
-	//		//glVertex3f(start_t[0], start_t[1], start_t[2]);
-	//		//glVertex3f(start_t[0], -start_t[1], start_t[2]);
-	//		//glVertex3f(end_t[0], -end_t[1], end_t[2]);
-	//		//glVertex3f(end_t[0], end_t[1], end_t[2]);
-
-	//		//glVertex2f(start_t[0], start_t[1]);
-	//		//glVertex2f(start_t[0], -start_t[1]);
-	//		//glVertex2f(end_t[0], -end_t[1]);
-	//		//glVertex2f(end_t[0], end_t[1]);
-
-
-	//		//for (int i = 0; i < 4; ++i) {cout << start_t[i] << " ";}cout << endl;
-	//		//system("PAUSE");
-	//		
-	//		glVertex4f(start_t[0], start_t[1], start_t[2], start_t[3]);
-	//		glVertex4f(start_t[0], -start_t[1], start_t[2], start_t[3]);
-	//		glVertex4f(end_t[0], -end_t[1], end_t[2], end_t[3]);
-	//		glVertex4f(end_t[0], end_t[1], end_t[2], end_t[3]);
-
-	//		//glVertex4f(start[0], start[1], start[2],1);
-	//		//glVertex4f(start[0], -start[1], start[2],1);
-	//		//glVertex4f(end[0], -end[1], end[2],1);
-	//		//glVertex4f(end[0], end[1], end[2],1);
-
-
-	//		//glVertex3f(start[0], start[1], start[2]);
-	//		//glVertex3f(start[0], -start[1], start[2]);
-	//		//glVertex3f(end[0], -end[1], end[2]);
-	//		//glVertex3f(end[0], end[1], end[2]);
-	//		//glEnd();
-
-
-
-	//		//glBegin(GL_POLYGON);
-	//		//glColor3fv(color);	
-	//		//glVertex4f(start[0], start[1], start[2],1);
-	//		//glVertex4f(start[0], -start[1], start[2],1);
-	//		//glVertex4f(end[0], -end[1], end[2],1);
-	//		//glVertex4f(end[0], end[1], end[2],1);
-	//		//glEnd();
-
-	//		glEnd();
-	//	}
-	//	
-	//}
 	float viewer_pos[3] = { viewer_posn[Maze::Y], 0.0f, viewer_posn[Maze::X] };
+	LookAt(viewer_pos[Maze::X], viewer_pos[Maze::Y], viewer_pos[Maze::Z],
+		viewer_pos[Maze::X] + sin(Maze::To_Radians(viewer_dir)), viewer_pos[Maze::Y], viewer_pos[Maze::Z] + cos(Maze::To_Radians(viewer_dir)),
+		0.0,1.0, 0.0
+	);
+	Perspective(viewer_fov, aspect, 0.01, 200);
 	for (int i = 0; i < num_cells; i++) { cells[i]->vis = 0; }
 	draw_cell(view_cell,
 		LineSeg(z_near * tan(To_Radians(viewer_fov * 0.5f)), -z_near, z_far * tan(To_Radians(viewer_fov * 0.5f)), -z_far),
@@ -977,23 +921,34 @@ Draw_Neighbors(int min_x, int min_y, int max_x, int max_y)
 void	Maze::draw_cell(Cell* current_cell, LineSeg L, LineSeg R){
 	current_cell->vis = true;
 	LineSeg hori(R.end[0], R.end[1], L.start[0], L.start[1]);
+	//cout << "Compare the model view matrix" << endl;
+	//for (int i = 0; i < 16; ++i) { cout << t_modelview[i]<< " "; }cout << endl;
+	//for (int i = 0; i < 16; ++i) {cout << t_modelviewGL[i] << " "; }cout << endl;
+	//cout << endl;
+	//cout << "Compare the projection matrix" << endl;
+	//for (int i = 0; i < 16; ++i) { cout << t_viewerview[i] << " "; }cout << endl;
+	//for (int i = 0; i < 16; ++i) { cout << t_viewerviewGL[i] << " "; }cout << endl;
+	//cout << endl;
 	for (int i = 0; i < 4; ++i) {
 		LineSeg wall(current_cell->edges[i]);
 		float start[4] = { wall.start[1], 1.0f, wall.start[0], 1.0f }, end[4] = { wall.end[1], 1.0f, wall.end[0], 1.0f };
 		float start_modelview[4], end_modelview[4], start_projview[4], end_projview[4];
-		input4x4(t_modelviewGL, start, start_modelview);
-		input4x4(t_modelviewGL, end, end_modelview);
+		input4x4(t_modelview, start, start_modelview);
+		input4x4(t_modelview, end, end_modelview);
+		//for (int i = 0; i < 16; ++i) { cout << t_modelview[i]<< " "; }cout << endl;
+		//for (int i = 0; i < 16; ++i) {cout << t_modelviewGL[i] << " "; }cout << endl;
+		//cout << endl;
 		if (!clip(L, start_modelview, end_modelview) || !clip(R, start_modelview, end_modelview)) continue;
 		wall.start[0] = start_modelview[0];
 		wall.start[1] = start_modelview[2];
-		wall.end[0] = end_modelview[0];
+		wall.end[0] = end_modelview[0]; //update the clipped wall
 		wall.end[1] = end_modelview[2];
 		if (current_cell->edges[i]->opaque) {
 			if (!clip(hori, start_modelview, end_modelview)) continue;
 			
-			input4x4(t_viewerviewGL, start_modelview, start_projview);
-			input4x4(t_viewerviewGL, end_modelview, end_projview);
-			if (start_projview[3] < z_near && end_projview[3] < z_near) continue;
+			input4x4(t_viewerview, start_modelview, start_projview);
+			input4x4(t_viewerview, end_modelview, end_projview);
+			//if (start_projview[3] < z_near && end_projview[3] < z_near) continue;
 			for (int i = 0; i < 3; ++i) {
 				start_projview[i] /= start_projview[3];
 				end_projview[i] /= end_projview[3];
@@ -1008,7 +963,6 @@ void	Maze::draw_cell(Cell* current_cell, LineSeg L, LineSeg R){
 			glEnd();
 		}
 		else {
-			//wall => 切完後的牆
 			if (current_cell->edges[i]->Neighbor(current_cell) == NULL) continue;
 			static float pre_Lx = 0.0f, pre_Rx = 0.0f, pre_Ly = 0.0f, pre_Ry = 0.0f; //因下面的if else if 可能都不會進去，所以要讓之前的值維持，才不會沒初始化變數就呼叫function
 			float Lx = pre_Lx, Rx = pre_Rx, Ly = pre_Ly, Ry = pre_Ry;
@@ -1032,7 +986,7 @@ void	Maze::draw_cell(Cell* current_cell, LineSeg L, LineSeg R){
 			pre_Ry = Ry;
 			LineSeg newL(Lx, Ly, Lx / Ly * -z_far, -z_far);
 			LineSeg newR(Rx / Ry * -z_far, -z_far, Rx, Ry);
-			if (!current_cell->edges[i]->Neighbor(current_cell)->vis && fabs((Lx / Ly * -z_far) - (Rx / Ry * -z_far)) > 0.01) {
+			if (!current_cell->edges[i]->Neighbor(current_cell)->vis && fabs((Lx / Ly * -z_far) - (Rx / Ry * -z_far)) > z_near) {
 				draw_cell(current_cell->edges[i]->Neighbor(current_cell), newL, newR);
 			}
 		}
