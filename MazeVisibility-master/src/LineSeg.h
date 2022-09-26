@@ -28,7 +28,7 @@ public:
 };
 class LineSeg {
 	private:
-		float m, b;
+		// float m, b;
 	public:
 		// First constructor takes the endpoints.
 		LineSeg(float xs, float ys, float xe, float ye);

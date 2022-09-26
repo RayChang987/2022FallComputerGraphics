@@ -651,12 +651,11 @@ void input4x4(float* mat, float* x, float* y) {
 	}
 }
 float t_modelview[16];
-float t_viewerview[16] = { 2.4142, 0, 0, 0, 0, 2.4142, 0, 0,0,0,-1.0001, -0.0200, 0, 0, -1.0000, 0 }; //相機內部算出來的
+float t_viewerview[16]; //相機內部算出來的
 
 bool clip(LineSeg frustum_side, float* start, float* end) {
 	char s_side = frustum_side.Point_Side(start[0], start[2]);
 	char e_side = frustum_side.Point_Side(end[0], end[2]);
-
 	if (s_side == Edge::RIGHT) {
 		if (e_side == Edge::LEFT) {
 			float percent = frustum_side.Cross_Param(LineSeg(start, end));
@@ -672,6 +671,7 @@ bool clip(LineSeg frustum_side, float* start, float* end) {
 	else {
 		return false;
 	}
+
 	return true;
 }
 #define square(x) ((x)*(x))
@@ -796,9 +796,9 @@ Draw_View(const float aspect)
 	//	LineSeg(-z_far * tan(To_Radians(viewer_fov * 0.5f)), -z_far, -z_near * tan(To_Radians(viewer_fov * 0.5f)), -z_near)
 	//);
 	Point2D Lnear(z_near * tan(To_Radians(viewer_fov * 0.5)), -z_near), Lfar(z_far * tan(To_Radians(viewer_fov * 0.5)), -z_far);
-	Point2D Rnear(-z_far * tan(To_Radians(viewer_fov * 0.5)), -z_far), Rfar(-z_near * tan(To_Radians(viewer_fov * 0.5)), -z_near);
+	Point2D Rnear(-z_near * tan(To_Radians(viewer_fov * 0.5)), -z_near), Rfar(-z_far * tan(To_Radians(viewer_fov * 0.5)), -z_far);
 	for (int i = 0; i < num_cells; i++) { cells[i]->vis = 0; }
-	my_draw_cell(view_cell,LineSeg(Lnear, Lfar),LineSeg(Rnear, Rfar)); // input left frustum and right frustum
+	my_draw_cell(view_cell, LineSeg(Lnear, Lfar), LineSeg(Rnear, Rfar)); // input left frustum and right frustum
 }
 
 
@@ -922,24 +922,50 @@ Draw_Neighbors(int min_x, int min_y, int max_x, int max_y)
 		}
 	}
 }
-bool clip_Lfrustum(LineSeg& Lfrustum, LineSeg& wall) {
-	Point2D intersection(Lfrustum.find_intersection(wall));
-	//cout << Lfrustum.start[0]<<" " << Lfrustum.start[1] << Lfrustum.end[0]<<" "<<Lfrustum.end[1]<<endl;
-	//cout << wall.start[0]<<" " << wall.start[1] << wall.end[0]<<" "<<wall.end[1]<<endl;
-	//cout << intersection.x<< " " << intersection.y << endl;
-	if (wall.onSeg(intersection)) {
-		wall.start[0] = intersection.x;
-		wall.start[1] = intersection.y;
-		return true;
+void Lfrustum_clip_wall(LineSeg& Lfrustum, LineSeg& wall) {
+	char start_side = Lfrustum.Point_Side(wall.start[0], wall.start[1]);
+	char end_side = Lfrustum.Point_Side(wall.end[0], wall.end[1]);
+	Point2D inter(Lfrustum.find_intersection(wall));
+	bool clipped = false;
+	//cout << "wall : "; wall.check();
+	if (start_side==Edge::LEFT&&end_side==Edge::RIGHT) {
+		wall.start[0] = inter.x;
+		wall.start[1] = inter.y;
+		clipped = true;
 	}
-	return false;
+	if (start_side == Edge::RIGHT && end_side == Edge::LEFT) {
+		wall.end[0] = inter.x;
+		wall.end[1] = inter.y;
+		clipped = true;
+	}
+	//cout << "intersected at : " << inter.x << " " << inter.y << endl;
+	//cout << "clipped : "; wall.check();
+	//cout << endl;
 }
-bool clip_Rfrustum(LineSeg& Rfrustum, LineSeg& wall) {
-	Point2D intersection(Rfrustum.find_intersection(wall));
-	cout << intersection.x << " " << intersection.y << endl;
-	if (wall.onSeg(intersection)) {
-		wall.end[0] = intersection.x;
-		wall.end[1] = intersection.y;
+void Rfrustum_clip_wall(LineSeg& Rfrustum, LineSeg& wall) {
+	char start_side = Rfrustum.Point_Side(wall.start[0], wall.start[1]);
+	char end_side = Rfrustum.Point_Side(wall.end[0], wall.end[1]);
+	Point2D inter(Rfrustum.find_intersection(wall));
+	bool clipped = false;
+	//cout << "wall : "; wall.check();
+	if (start_side == Edge::LEFT  && end_side == Edge::RIGHT) {
+		wall.end[0] = inter.x;
+		wall.end[1] = inter.y;
+		clipped = true;
+	}
+	if (start_side == Edge::RIGHT && end_side == Edge::LEFT) {
+		wall.start[0] = inter.x;
+		wall.start[1] = inter.y;
+		clipped = true;
+	}
+	//cout << "intersected at : " << inter.x << " " << inter.y << endl;
+	//cout << "clipped : "; wall.check();
+	//cout << endl;
+}
+bool visible(LineSeg& Lfrustum, LineSeg& Rfrustum, Point2D p) {
+	char l_side = Lfrustum.Point_Side(p.x, p.y);
+	char r_side = Rfrustum.Point_Side(p.x, p.y);
+	if ((l_side == Edge::ON || l_side == Edge::RIGHT) && (r_side==Edge::ON||r_side==Edge::LEFT)) {
 		return true;
 	}
 	return false;
@@ -950,20 +976,26 @@ void	Maze::my_draw_cell(Cell* current_cell, LineSeg Lfrustum, LineSeg Rfrustum) 
 		LineSeg wall(current_cell->edges[i]);
 		float wall_start[4] = { wall.start[1], 1.0, wall.start[0], 1.0 }, wall_start_modelview[4], wall_start_projview[4];
 		float wall_end[4] = { wall.end[1], 1.0, wall.end[0], 1.0 }, wall_end_modelview[4], wall_end_projview[4];
+	
 		input4x4(t_modelview, wall_start, wall_start_modelview);
 		input4x4(t_modelview, wall_end, wall_end_modelview); 
-		wall.start[0] = wall_start_modelview[0], wall.start[1] = wall_start_modelview[2];
-		wall.end[0] = wall_end_modelview[0], wall.end[1] = wall_end_modelview[2];
-		bool Lfrustum_intersected = clip_Lfrustum(Lfrustum, wall);
-		bool Rfrustum_intersected = clip_Rfrustum(Rfrustum, wall);
-		wall_start_modelview[0] = wall.start[1];
-		wall_start_modelview[2] = wall.start[0];
-		wall_end_modelview[0] = wall.end[1];
-		wall_end_modelview[2] = wall.end[0];
+		wall.start[0] = wall_start_modelview[0];
+		wall.start[1] = wall_start_modelview[2];
+		wall.end[0] = wall_end_modelview[0];
+		wall.end[1] = wall_end_modelview[2];
+		
+		Lfrustum_clip_wall(Lfrustum, wall);
+		Rfrustum_clip_wall(Rfrustum, wall);
+		wall_start_modelview[0] = wall.start[0];
+		wall_start_modelview[2] = wall.start[1];
+		wall_end_modelview[0] = wall.end[0];
+		wall_end_modelview[2] = wall.end[1];
+		if (visible(Lfrustum, Rfrustum, Point2D(wall.start[0], wall.start[1])) || visible(Lfrustum, Rfrustum, Point2D(wall.end[0], wall.end[1]))) {}
+		else { continue; }
 		//Lfrustum.check();
-		wall.check();
-		if (Lfrustum_intersected == 0 && Rfrustum_intersected == 0) { continue; } // this wall is outside of the frustum
-		wall.check();
+		//wall.check();
+		
+		//wall.check();
 		if (current_cell->edges[i]->opaque) {
 			input4x4(t_viewerview, wall_start_modelview, wall_start_projview);
 			input4x4(t_viewerview, wall_end_modelview, wall_end_projview);
@@ -974,15 +1006,17 @@ void	Maze::my_draw_cell(Cell* current_cell, LineSeg Lfrustum, LineSeg Rfrustum) 
 			glBegin(GL_POLYGON);
 			glColor3fv(current_cell->edges[i]->color);
 			glVertex2f(wall_start_projview[0], wall_start_projview[1]);
-			glVertex2f(wall_end_projview[0], wall_end_projview[1]);
-			glVertex2f(wall_end_projview[0], -wall_end_projview[1]);
 			glVertex2f(wall_start_projview[0], -wall_start_projview[1]);
+			glVertex2f(wall_end_projview[0], -wall_end_projview[1]);
+			glVertex2f(wall_end_projview[0], wall_end_projview[1]);
 			glEnd();
 		}
-		//else { //recursive
-		//	if (current_cell->edges[i]->Neighbor(current_cell) == NULL) continue;
-
-		//}
+		else { //recursive
+			if (current_cell->edges[i]->Neighbor(current_cell) == NULL) continue;
+			if (!current_cell->edges[i]->Neighbor(current_cell)->vis) {
+				my_draw_cell(current_cell->edges[i]->Neighbor(current_cell), Lfrustum, Rfrustum);
+			}
+		}
 	}
 
 }
@@ -1013,16 +1047,23 @@ void	Maze::draw_cell(Cell* current_cell, LineSeg L, LineSeg R){
 		wall.start[1] = start_modelview[2];
 		wall.end[0] = end_modelview[0]; //update the clipped wall
 		wall.end[1] = end_modelview[2];
-		wall.check();
+		//for (int i = 0; i < 4; ++i) { cout << start_modelview[i] << " "; }cout << endl;
+		//wall.check();
+		//system("PAUSE");
+		//cout << "L : "; L.check();
+		//cout << "R : "; R.check();
 		if (!clip(L, start_modelview, end_modelview) || !clip(R, start_modelview, end_modelview)) continue;
-		wall.check();
-		
+		//wall.check();
+		wall.start[0] = start_modelview[0];
+		wall.start[1] = start_modelview[2];
+		wall.end[0] = end_modelview[0]; //update the clipped wall
+		wall.end[1] = end_modelview[2];
 		if (current_cell->edges[i]->opaque) {
 			if (!clip(hori, start_modelview, end_modelview)) continue;
 			
 			input4x4(t_viewerview, start_modelview, start_projview);
 			input4x4(t_viewerview, end_modelview, end_projview);
-			//if (start_projview[3] < z_near && end_projview[3] < z_near) continue;
+			if (start_projview[3] < z_near && end_projview[3] < z_near) continue;
 			for (int i = 0; i < 3; ++i) {
 				start_projview[i] /= start_projview[3];
 				end_projview[i] /= end_projview[3];
