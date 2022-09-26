@@ -17,10 +17,15 @@
 
 #include "LineSeg.h"
 
+#include <iostream>
+using namespace std;
 //**********************************************************************
 //
 // * Constructor from an edge
 //======================================================================
+Point2D::Point2D(float x, float y) {
+	this->x = x; this->y = y;
+}
 LineSeg::
 LineSeg(Edge *e)
 //======================================================================
@@ -30,6 +35,9 @@ LineSeg(Edge *e)
 
 	end[0] = e->endpoints[Edge::END]->posn[Vertex::X];
 	end[1] = e->endpoints[Edge::END]->posn[Vertex::Y];
+	if (end[0] == start[0]) {m = 1e20+9;}
+	else {m = (end[1] - start[1]) / (end[0] - start[0]);}
+	b = start[1] - m * start[0];
 }
 
 //**********************************************************************
@@ -44,6 +52,9 @@ LineSeg(float xs, float ys, float xe, float ye)
 	start[1] = ys;
 	end[0] = xe;
 	end[1] = ye;
+	if (end[0] == start[0]) { m = 1e20 + 9; }
+	else { m = (end[1] - start[1]) / (end[0] - start[0]); }
+	b = start[1] - m * start[0];
 }
 
 
@@ -55,6 +66,21 @@ LineSeg(float xs, float ys, float xe, float ye)
 //   DOES NOT tell you whether the edge is "entering" or "leaving".
 //   But you can use tests like Edge::Point_Side() to figure that out.
 //======================================================================
+Point2D LineSeg::find_intersection(LineSeg l) {
+	//parametric form
+	float a1, a2, b1, b2, c1, c2;
+	a1 = l.m, b1 = -1, c1 = l.b;
+	a2 = m, b2 = -1, c2 = b;
+	float det = a1 * b2 - a2 * b1;
+	return Point2D((b1 * c2 - b2 * c1) / det, (c1*a2-a1*c2) / det);
+}
+LineSeg::LineSeg(Point2D s, Point2D e) {
+	start[0] = s.x; start[1] = s.y;
+	end[0] = e.x; end[1] = e.y;
+	if (end[0] == start[0]) { m = 1e20 + 9; }
+	else { m = (end[1] - start[1]) / (end[0] - start[0]); }
+	b = start[1] - m * start[0];
+}
 float LineSeg::
 Cross_Param(LineSeg e)
 //======================================================================
@@ -80,8 +106,8 @@ Cross_Param(LineSeg e)
 }
 char LineSeg::Point_Side(float x, float y) {
 	// Compute the determinant: | xs ys 1 |
-//                          | xe ye 1 |
-//                          | x  y  1 |
+	//                          | xe ye 1 |
+	//                          | x  y  1 |
 // Use its sign to get the answer.
 
 	float   det;
@@ -105,4 +131,15 @@ LineSeg::LineSeg(float* s, float* e) {
 	start[1] = s[2];
 	end[0] = e[0];
 	end[1] = e[2];
+	if (end[0] == start[0]) { m = 1e20 + 9; }
+	else { m = (end[1] - start[1]) / (end[0] - start[0]); }
+	b = start[1] - m * start[0];
+}
+bool LineSeg::onSeg(Point2D p) {
+	bool x_mono = (start[0] >= p.x && p.x >= end[0]) || (end[0] >= p.x && p.x >= start[0]);
+	bool y_mono = (start[1] >= p.y && p.y >= end[1]) || (end[1] >= p.y && p.y >= start[1]);
+	return x_mono && y_mono;
+}
+void LineSeg::check() {
+	cout << "{" << start[0] << " " << start[1] << "}" << "{" << end[0] << " " << end[1] << "}" << endl;
 }

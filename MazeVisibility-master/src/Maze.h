@@ -99,8 +99,8 @@ class Maze {
 		// THIS IS THE FUINCTION YOU SHOULD MODIFY.
 		void	Draw_View(const float);
 
-		void	Draw_Wall(const float start[2], const float end[2], const float color[3]);
 		void	draw_cell(Cell*, LineSeg, LineSeg);
+		void my_draw_cell(Cell* , LineSeg, LineSeg);
 		// Save the maze to a file of the given name.
 		bool	Save(const char*);
 
@@ -159,6 +159,7 @@ class Maze {
 		float t_modelview[16], t_viewerview[16];
 		void LookAt(float,float,float,float,float,float,float,float,float);
 		void Perspective(float, float, float, float);
+		
 };
 
 

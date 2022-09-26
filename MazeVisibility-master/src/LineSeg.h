@@ -19,16 +19,26 @@
 #define _LINESEG_H_
 
 #include "Edge.h"
-
+class Point2D
+{
+public:
+	float x;
+	float y;
+	Point2D(float x, float y);
+};
 class LineSeg {
-
+	private:
+		float m, b;
 	public:
 		// First constructor takes the endpoints.
 		LineSeg(float xs, float ys, float xe, float ye);
 		LineSeg(float* s, float* e);
+		LineSeg(Point2D s, Point2D e);
 		// Second constructor takes an edge. The LineSeg created has the same
 		// start and end points as the edge.
 		LineSeg(Edge*);
+		Point2D find_intersection(LineSeg);
+		bool onSeg(Point2D);
 
 	public:
 		// Return the parameter value at which this segment crosses the given
@@ -37,10 +47,11 @@ class LineSeg {
 		// DOES NOT tell you whether the edge is "entering" or "leaving".
 		// But you can use tests like Edge::Point_Side() to figure that out.
 		float   Cross_Param(LineSeg);
-
 	public:
 		float   start[2];	// Starting point, x and y.
 		float   end[2];	// Ending point, x and y.
+
+		void check();
 		char Point_Side(float x, float y);
 };
 

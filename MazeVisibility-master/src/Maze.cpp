@@ -791,9 +791,14 @@ Draw_View(const float aspect)
 	);
 	Perspective(viewer_fov, aspect, 0.01, 200);
 	for (int i = 0; i < num_cells; i++) { cells[i]->vis = 0; }
-	draw_cell(view_cell,
-		LineSeg(z_near * tan(To_Radians(viewer_fov * 0.5f)), -z_near, z_far * tan(To_Radians(viewer_fov * 0.5f)), -z_far),
-		LineSeg(-z_far * tan(To_Radians(viewer_fov * 0.5f)), -z_far, -z_near * tan(To_Radians(viewer_fov * 0.5f)), -z_near));
+	//draw_cell(view_cell,
+	//	LineSeg(z_near * tan(To_Radians(viewer_fov * 0.5f)), -z_near, z_far * tan(To_Radians(viewer_fov * 0.5f)), -z_far),
+	//	LineSeg(-z_far * tan(To_Radians(viewer_fov * 0.5f)), -z_far, -z_near * tan(To_Radians(viewer_fov * 0.5f)), -z_near)
+	//);
+	Point2D Lnear(z_near * tan(To_Radians(viewer_fov * 0.5)), -z_near), Lfar(z_far * tan(To_Radians(viewer_fov * 0.5)), -z_far);
+	Point2D Rnear(-z_far * tan(To_Radians(viewer_fov * 0.5)), -z_far), Rfar(-z_near * tan(To_Radians(viewer_fov * 0.5)), -z_near);
+	for (int i = 0; i < num_cells; i++) { cells[i]->vis = 0; }
+	my_draw_cell(view_cell,LineSeg(Lnear, Lfar),LineSeg(Rnear, Rfar)); // input left frustum and right frustum
 }
 
 
@@ -917,7 +922,70 @@ Draw_Neighbors(int min_x, int min_y, int max_x, int max_y)
 		}
 	}
 }
+bool clip_Lfrustum(LineSeg& Lfrustum, LineSeg& wall) {
+	Point2D intersection(Lfrustum.find_intersection(wall));
+	//cout << Lfrustum.start[0]<<" " << Lfrustum.start[1] << Lfrustum.end[0]<<" "<<Lfrustum.end[1]<<endl;
+	//cout << wall.start[0]<<" " << wall.start[1] << wall.end[0]<<" "<<wall.end[1]<<endl;
+	//cout << intersection.x<< " " << intersection.y << endl;
+	if (wall.onSeg(intersection)) {
+		wall.start[0] = intersection.x;
+		wall.start[1] = intersection.y;
+		return true;
+	}
+	return false;
+}
+bool clip_Rfrustum(LineSeg& Rfrustum, LineSeg& wall) {
+	Point2D intersection(Rfrustum.find_intersection(wall));
+	cout << intersection.x << " " << intersection.y << endl;
+	if (wall.onSeg(intersection)) {
+		wall.end[0] = intersection.x;
+		wall.end[1] = intersection.y;
+		return true;
+	}
+	return false;
+}
+void	Maze::my_draw_cell(Cell* current_cell, LineSeg Lfrustum, LineSeg Rfrustum) {
+	current_cell->vis = 1;
+	for (int i = 0; i < 4; ++i) { //traversal 4 edges
+		LineSeg wall(current_cell->edges[i]);
+		float wall_start[4] = { wall.start[1], 1.0, wall.start[0], 1.0 }, wall_start_modelview[4], wall_start_projview[4];
+		float wall_end[4] = { wall.end[1], 1.0, wall.end[0], 1.0 }, wall_end_modelview[4], wall_end_projview[4];
+		input4x4(t_modelview, wall_start, wall_start_modelview);
+		input4x4(t_modelview, wall_end, wall_end_modelview); 
+		wall.start[0] = wall_start_modelview[0], wall.start[1] = wall_start_modelview[2];
+		wall.end[0] = wall_end_modelview[0], wall.end[1] = wall_end_modelview[2];
+		bool Lfrustum_intersected = clip_Lfrustum(Lfrustum, wall);
+		bool Rfrustum_intersected = clip_Rfrustum(Rfrustum, wall);
+		wall_start_modelview[0] = wall.start[1];
+		wall_start_modelview[2] = wall.start[0];
+		wall_end_modelview[0] = wall.end[1];
+		wall_end_modelview[2] = wall.end[0];
+		//Lfrustum.check();
+		wall.check();
+		if (Lfrustum_intersected == 0 && Rfrustum_intersected == 0) { continue; } // this wall is outside of the frustum
+		wall.check();
+		if (current_cell->edges[i]->opaque) {
+			input4x4(t_viewerview, wall_start_modelview, wall_start_projview);
+			input4x4(t_viewerview, wall_end_modelview, wall_end_projview);
+			for (int i = 0; i < 3; ++i) {
+				wall_start_projview[i] /= wall_start_projview[3];
+				wall_end_projview[i] /= wall_end_projview[3];
+			}
+			glBegin(GL_POLYGON);
+			glColor3fv(current_cell->edges[i]->color);
+			glVertex2f(wall_start_projview[0], wall_start_projview[1]);
+			glVertex2f(wall_end_projview[0], wall_end_projview[1]);
+			glVertex2f(wall_end_projview[0], -wall_end_projview[1]);
+			glVertex2f(wall_start_projview[0], -wall_start_projview[1]);
+			glEnd();
+		}
+		//else { //recursive
+		//	if (current_cell->edges[i]->Neighbor(current_cell) == NULL) continue;
 
+		//}
+	}
+
+}
 void	Maze::draw_cell(Cell* current_cell, LineSeg L, LineSeg R){
 	current_cell->vis = true;
 	LineSeg hori(R.end[0], R.end[1], L.start[0], L.start[1]);
@@ -937,12 +1005,18 @@ void	Maze::draw_cell(Cell* current_cell, LineSeg L, LineSeg R){
 		input4x4(t_modelview, end, end_modelview);
 		//for (int i = 0; i < 16; ++i) { cout << t_modelview[i]<< " "; }cout << endl;
 		//for (int i = 0; i < 16; ++i) {cout << t_modelviewGL[i] << " "; }cout << endl;
-		//cout << endl;
-		if (!clip(L, start_modelview, end_modelview) || !clip(R, start_modelview, end_modelview)) continue;
+		////cout << endl;
+		//for (int i = 0; i < 4; ++i) { cout << start_modelview[i] << " "; }cout << endl;
+		//system("PAUSE");
+		//L.check();
 		wall.start[0] = start_modelview[0];
 		wall.start[1] = start_modelview[2];
 		wall.end[0] = end_modelview[0]; //update the clipped wall
 		wall.end[1] = end_modelview[2];
+		wall.check();
+		if (!clip(L, start_modelview, end_modelview) || !clip(R, start_modelview, end_modelview)) continue;
+		wall.check();
+		
 		if (current_cell->edges[i]->opaque) {
 			if (!clip(hori, start_modelview, end_modelview)) continue;
 			
