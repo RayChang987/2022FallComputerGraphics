@@ -24,8 +24,9 @@
 #include <time.h>
 #include <FL/Fl.h>
 #include <FL/fl_draw.h>
+#include<vector>
 #include<iostream> //for testing
-
+#include<queue>
 using namespace std;
 
 const char Maze::X = 0;
@@ -651,29 +652,8 @@ void input4x4(float* mat, float* x, float* y) {
 	}
 }
 float t_modelview[16];
-float t_viewerview[16]; //相機內部算出來的
+float t_viewerview[16]; //inner parameters
 
-bool clip(LineSeg frustum_side, float* start, float* end) {
-	char s_side = frustum_side.Point_Side(start[0], start[2]);
-	char e_side = frustum_side.Point_Side(end[0], end[2]);
-	if (s_side == Edge::RIGHT) {
-		if (e_side == Edge::LEFT) {
-			float percent = frustum_side.Cross_Param(LineSeg(start, end));
-			end[0] = frustum_side.start[0] + (frustum_side.end[0] - frustum_side.start[0]) * percent;
-			end[2] = frustum_side.start[1] + (frustum_side.end[1] - frustum_side.start[1]) * percent;
-		}
-	}
-	else if (e_side == Edge::RIGHT) {
-		float percent = frustum_side.Cross_Param(LineSeg(start, end));
-		start[0] = frustum_side.start[0] + (frustum_side.end[0] - frustum_side.start[0]) * percent;
-		start[2] = frustum_side.start[1] + (frustum_side.end[1] - frustum_side.start[1]) * percent;
-	}
-	else {
-		return false;
-	}
-
-	return true;
-}
 #define square(x) ((x)*(x))
 void Normalize3x1(float* x) {
 	float Norm = sqrt(square(x[0]) + square(x[1]) + square(x[2]));
@@ -746,7 +726,6 @@ void Maze::LookAt(float posX, float posY, float posZ, float centerX, float cente
 	//check44(T); 
 	//check44(M); 
 	//check44(t_modelview);
-	//system("PAUSE");
 }
 void Maze::Perspective(float fov, float aspect, float zNear,float zFar) {
 	for (int i = 0; i < 16; ++i) { t_viewerview[i] = 0; }
@@ -758,6 +737,17 @@ void Maze::Perspective(float fov, float aspect, float zNear,float zFar) {
 	t_viewerview[14] = -1;
 
 }
+class drawn_wall {
+public:
+	Point2D s, e;
+	float color[3];
+	drawn_wall(Point2D s, Point2D e, float* f) {
+		this->s = s;
+		this->e = e;
+		color[0] = f[0]; color[1] = f[1]; color[2] = f[2];
+	}
+};
+vector<drawn_wall> wall_buffer;
 void Maze::
 Draw_View(const float aspect)
 //======================================================================
@@ -791,14 +781,21 @@ Draw_View(const float aspect)
 	);
 	Perspective(viewer_fov, aspect, 0.01, 200);
 	for (int i = 0; i < num_cells; i++) { cells[i]->vis = 0; }
-	//draw_cell(view_cell,
-	//	LineSeg(z_near * tan(To_Radians(viewer_fov * 0.5f)), -z_near, z_far * tan(To_Radians(viewer_fov * 0.5f)), -z_far),
-	//	LineSeg(-z_far * tan(To_Radians(viewer_fov * 0.5f)), -z_far, -z_near * tan(To_Radians(viewer_fov * 0.5f)), -z_near)
-	//);
-	Point2D Lnear(z_near * tan(To_Radians(viewer_fov * 0.5)), -z_near), Lfar(z_far * tan(To_Radians(viewer_fov * 0.5)), -z_far);
-	Point2D Rnear(-z_near * tan(To_Radians(viewer_fov * 0.5)), -z_near), Rfar(-z_far * tan(To_Radians(viewer_fov * 0.5)), -z_far);
+	Point2D Lnear(0, 0), Lfar(z_far * tan(To_Radians(viewer_fov * 0.5)), -z_far);
+	Point2D Rnear(0, 0), Rfar(-z_far * tan(To_Radians(viewer_fov * 0.5)), -z_far);
 	for (int i = 0; i < num_cells; i++) { cells[i]->vis = 0; }
-	my_draw_cell(view_cell, LineSeg(Lnear, Lfar), LineSeg(Rnear, Rfar)); // input left frustum and right frustum
+	wall_buffer.clear();
+	bfs_draw_cell(view_cell, LineSeg(Lnear, Lfar), LineSeg(Rnear, Rfar));
+	reverse(wall_buffer.begin(), wall_buffer.end());
+	for (auto& wall : wall_buffer) {
+		glBegin(GL_POLYGON);
+		glColor3fv(wall.color);
+		glVertex2f(wall.s.x, wall.s.y);
+		glVertex2f(wall.s.x, -wall.s.y);
+		glVertex2f(wall.e.x, -wall.e.y);
+		glVertex2f(wall.e.x, wall.e.y);
+		glEnd();
+	}
 }
 
 
@@ -927,7 +924,6 @@ void Lfrustum_clip_wall(LineSeg& Lfrustum, LineSeg& wall) {
 	char end_side = Lfrustum.Point_Side(wall.end[0], wall.end[1]);
 	Point2D inter(Lfrustum.find_intersection(wall));
 	bool clipped = false;
-	//cout << "wall : "; wall.check();
 	if (start_side==Edge::LEFT&&end_side==Edge::RIGHT) {
 		wall.start[0] = inter.x;
 		wall.start[1] = inter.y;
@@ -938,16 +934,12 @@ void Lfrustum_clip_wall(LineSeg& Lfrustum, LineSeg& wall) {
 		wall.end[1] = inter.y;
 		clipped = true;
 	}
-	//cout << "intersected at : " << inter.x << " " << inter.y << endl;
-	//cout << "clipped : "; wall.check();
-	//cout << endl;
 }
 void Rfrustum_clip_wall(LineSeg& Rfrustum, LineSeg& wall) {
 	char start_side = Rfrustum.Point_Side(wall.start[0], wall.start[1]);
 	char end_side = Rfrustum.Point_Side(wall.end[0], wall.end[1]);
 	Point2D inter(Rfrustum.find_intersection(wall));
 	bool clipped = false;
-	//cout << "wall : "; wall.check();
 	if (start_side == Edge::LEFT  && end_side == Edge::RIGHT) {
 		wall.end[0] = inter.x;
 		wall.end[1] = inter.y;
@@ -958,11 +950,8 @@ void Rfrustum_clip_wall(LineSeg& Rfrustum, LineSeg& wall) {
 		wall.start[1] = inter.y;
 		clipped = true;
 	}
-	//cout << "intersected at : " << inter.x << " " << inter.y << endl;
-	//cout << "clipped : "; wall.check();
-	//cout << endl;
 }
-bool visible(LineSeg& Lfrustum, LineSeg& Rfrustum, Point2D p) {
+bool visible(LineSeg Lfrustum, LineSeg Rfrustum, Point2D p) {
 	char l_side = Lfrustum.Point_Side(p.x, p.y);
 	char r_side = Rfrustum.Point_Side(p.x, p.y);
 	if ((l_side == Edge::ON || l_side == Edge::RIGHT) && (r_side==Edge::ON||r_side==Edge::LEFT)) {
@@ -970,139 +959,67 @@ bool visible(LineSeg& Lfrustum, LineSeg& Rfrustum, Point2D p) {
 	}
 	return false;
 }
-void	Maze::my_draw_cell(Cell* current_cell, LineSeg Lfrustum, LineSeg Rfrustum) {
-	current_cell->vis = 1;
-	for (int i = 0; i < 4; ++i) { //traversal 4 edges
-		LineSeg wall(current_cell->edges[i]);
-		float wall_start[4] = { wall.start[1], 1.0, wall.start[0], 1.0 }, wall_start_modelview[4], wall_start_projview[4];
-		float wall_end[4] = { wall.end[1], 1.0, wall.end[0], 1.0 }, wall_end_modelview[4], wall_end_projview[4];
+void Maze::bfs_draw_cell(Cell* start_cell, LineSeg Lfrustum, LineSeg Rfrustum) {
+	unordered_map<Cell*, int> visited;
+	queue<Cell*> q;
+	visited.clear();
+	visited[start_cell] = 1;
+	q.push(start_cell);
 	
-		input4x4(t_modelview, wall_start, wall_start_modelview);
-		input4x4(t_modelview, wall_end, wall_end_modelview); 
-		wall.start[0] = wall_start_modelview[0];
-		wall.start[1] = wall_start_modelview[2];
-		wall.end[0] = wall_end_modelview[0];
-		wall.end[1] = wall_end_modelview[2];
-		
-		Lfrustum_clip_wall(Lfrustum, wall);
-		Rfrustum_clip_wall(Rfrustum, wall);
-		wall_start_modelview[0] = wall.start[0];
-		wall_start_modelview[2] = wall.start[1];
-		wall_end_modelview[0] = wall.end[0];
-		wall_end_modelview[2] = wall.end[1];
-		if (visible(Lfrustum, Rfrustum, Point2D(wall.start[0], wall.start[1])) || visible(Lfrustum, Rfrustum, Point2D(wall.end[0], wall.end[1]))) {}
-		else { continue; }
-		//Lfrustum.check();
-		//wall.check();
-		
-		//wall.check();
-		if (current_cell->edges[i]->opaque) {
-			input4x4(t_viewerview, wall_start_modelview, wall_start_projview);
-			input4x4(t_viewerview, wall_end_modelview, wall_end_projview);
-			for (int i = 0; i < 3; ++i) {
-				wall_start_projview[i] /= wall_start_projview[3];
-				wall_end_projview[i] /= wall_end_projview[3];
-			}
-			glBegin(GL_POLYGON);
-			glColor3fv(current_cell->edges[i]->color);
-			glVertex2f(wall_start_projview[0], wall_start_projview[1]);
-			glVertex2f(wall_start_projview[0], -wall_start_projview[1]);
-			glVertex2f(wall_end_projview[0], -wall_end_projview[1]);
-			glVertex2f(wall_end_projview[0], wall_end_projview[1]);
-			glEnd();
-		}
-		else { //recursive
-			if (current_cell->edges[i]->Neighbor(current_cell) == NULL) continue;
-			if (!current_cell->edges[i]->Neighbor(current_cell)->vis) {
-				my_draw_cell(current_cell->edges[i]->Neighbor(current_cell), Lfrustum, Rfrustum);
-			}
-		}
-	}
+	while (!q.empty()) {
+		Cell* current_cell = q.front(); q.pop();
+		for (int i = 0; i < 4; ++i) { //traversal 4 edges
+			LineSeg wall(current_cell->edges[i]);
+			float wall_start[4] = { wall.start[1], 1.0, wall.start[0], 1.0 }, wall_start_modelview[4], wall_start_projview[4];
+			float wall_end[4] = { wall.end[1], 1.0, wall.end[0], 1.0 }, wall_end_modelview[4], wall_end_projview[4];
 
-}
-void	Maze::draw_cell(Cell* current_cell, LineSeg L, LineSeg R){
-	current_cell->vis = true;
-	LineSeg hori(R.end[0], R.end[1], L.start[0], L.start[1]);
-	//cout << "Compare the model view matrix" << endl;
-	//for (int i = 0; i < 16; ++i) { cout << t_modelview[i]<< " "; }cout << endl;
-	//for (int i = 0; i < 16; ++i) {cout << t_modelviewGL[i] << " "; }cout << endl;
-	//cout << endl;
-	//cout << "Compare the projection matrix" << endl;
-	//for (int i = 0; i < 16; ++i) { cout << t_viewerview[i] << " "; }cout << endl;
-	//for (int i = 0; i < 16; ++i) { cout << t_viewerviewGL[i] << " "; }cout << endl;
-	//cout << endl;
-	for (int i = 0; i < 4; ++i) {
-		LineSeg wall(current_cell->edges[i]);
-		float start[4] = { wall.start[1], 1.0f, wall.start[0], 1.0f }, end[4] = { wall.end[1], 1.0f, wall.end[0], 1.0f };
-		float start_modelview[4], end_modelview[4], start_projview[4], end_projview[4];
-		input4x4(t_modelview, start, start_modelview);
-		input4x4(t_modelview, end, end_modelview);
-		//for (int i = 0; i < 16; ++i) { cout << t_modelview[i]<< " "; }cout << endl;
-		//for (int i = 0; i < 16; ++i) {cout << t_modelviewGL[i] << " "; }cout << endl;
-		////cout << endl;
-		//for (int i = 0; i < 4; ++i) { cout << start_modelview[i] << " "; }cout << endl;
-		//system("PAUSE");
-		//L.check();
-		wall.start[0] = start_modelview[0];
-		wall.start[1] = start_modelview[2];
-		wall.end[0] = end_modelview[0]; //update the clipped wall
-		wall.end[1] = end_modelview[2];
-		//for (int i = 0; i < 4; ++i) { cout << start_modelview[i] << " "; }cout << endl;
-		//wall.check();
-		//system("PAUSE");
-		//cout << "L : "; L.check();
-		//cout << "R : "; R.check();
-		if (!clip(L, start_modelview, end_modelview) || !clip(R, start_modelview, end_modelview)) continue;
-		//wall.check();
-		wall.start[0] = start_modelview[0];
-		wall.start[1] = start_modelview[2];
-		wall.end[0] = end_modelview[0]; //update the clipped wall
-		wall.end[1] = end_modelview[2];
-		if (current_cell->edges[i]->opaque) {
-			if (!clip(hori, start_modelview, end_modelview)) continue;
-			
-			input4x4(t_viewerview, start_modelview, start_projview);
-			input4x4(t_viewerview, end_modelview, end_projview);
-			if (start_projview[3] < z_near && end_projview[3] < z_near) continue;
-			for (int i = 0; i < 3; ++i) {
-				start_projview[i] /= start_projview[3];
-				end_projview[i] /= end_projview[3];
-			}
-			//system("PAUSE");
-			glBegin(GL_POLYGON);
-			glColor3fv(current_cell->edges[i]->color);
-			glVertex2f(start_projview[0], start_projview[1]);
-			glVertex2f(end_projview[0], end_projview[1]);
-			glVertex2f(end_projview[0], -end_projview[1]);
-			glVertex2f(start_projview[0], -start_projview[1]);
-			glEnd();
-		}
-		else {
-			if (current_cell->edges[i]->Neighbor(current_cell) == NULL) continue;
-			static float pre_Lx = 0.0f, pre_Rx = 0.0f, pre_Ly = 0.0f, pre_Ry = 0.0f; //因下面的if else if 可能都不會進去，所以要讓之前的值維持，才不會沒初始化變數就呼叫function
-			float Lx = pre_Lx, Rx = pre_Rx, Ly = pre_Ly, Ry = pre_Ry;
+			input4x4(t_modelview, wall_start, wall_start_modelview);
+			input4x4(t_modelview, wall_end, wall_end_modelview);
+			wall.start[0] = wall_start_modelview[0];
+			wall.start[1] = wall_start_modelview[2];
+			wall.end[0] = wall_end_modelview[0];
+			wall.end[1] = wall_end_modelview[2];
 
-			LineSeg midline(0.0f, 0.0f, (wall.start[0] + wall.end[0]) * 0.5, (wall.start[1] + wall.end[1]) * 0.5);
-			if (midline.Point_Side(wall.start[0], wall.start[1]) == Edge::LEFT && midline.Point_Side(wall.end[0], wall.end[1]) == Edge::RIGHT) {
-				Lx = wall.start[0];
-				Ly = wall.start[1];
-				Rx = wall.end[0];
-				Ry = wall.end[1];
+			Lfrustum_clip_wall(Lfrustum, wall);
+			Rfrustum_clip_wall(Rfrustum, wall);
+			wall_start_modelview[0] = wall.start[0];
+			wall_start_modelview[2] = wall.start[1];
+			wall_end_modelview[0] = wall.end[0];
+			wall_end_modelview[2] = wall.end[1];
+			if (visible(Lfrustum, Rfrustum, Point2D(wall.start[0], wall.start[1])) || visible(Lfrustum, Rfrustum, Point2D(wall.end[0], wall.end[1]))) { }
+			else { continue; }
+			//Lfrustum.check();
+			//wall.check();
+
+			//wall.check();
+			if (current_cell->edges[i]->opaque) {
+				input4x4(t_viewerview, wall_start_modelview, wall_start_projview);
+				input4x4(t_viewerview, wall_end_modelview, wall_end_projview);
+				for (int i = 0; i < 3; ++i) {
+					wall_start_projview[i] /= wall_start_projview[3];
+					wall_end_projview[i] /= wall_end_projview[3];
+				}
+
+
+				wall_buffer.push_back(drawn_wall(
+					Point2D(wall_start_projview[0], wall_start_projview[1]),
+					Point2D(wall_end_projview[0], wall_end_projview[1]),
+					current_cell->edges[i]->color)
+				);
+				//glBegin(GL_POLYGON);
+				//glColor3fv(current_cell->edges[i]->color);
+				//glVertex2f(wall_start_projview[0], wall_start_projview[1]);
+				//glVertex2f(wall_start_projview[0], -wall_start_projview[1]);
+				//glVertex2f(wall_end_projview[0], -wall_end_projview[1]);
+				//glVertex2f(wall_end_projview[0], wall_end_projview[1]);
+				//glEnd();
 			}
-			else if (midline.Point_Side(wall.start[0], wall.start[1]) == Edge::RIGHT && midline.Point_Side(wall.end[0], wall.end[1]) == Edge::LEFT) {
-				Lx = wall.end[0];
-				Ly = wall.end[1];
-				Rx = wall.start[0];
-				Ry = wall.start[1];
-			}
-			pre_Lx = Lx;
-			pre_Rx = Rx;
-			pre_Ly = Ly;
-			pre_Ry = Ry;
-			LineSeg newL(Lx, Ly, Lx / Ly * -z_far, -z_far);
-			LineSeg newR(Rx / Ry * -z_far, -z_far, Rx, Ry);
-			if (!current_cell->edges[i]->Neighbor(current_cell)->vis && fabs((Lx / Ly * -z_far) - (Rx / Ry * -z_far)) > z_near) {
-				draw_cell(current_cell->edges[i]->Neighbor(current_cell), newL, newR);
+			else { //recursive
+				if (current_cell->edges[i]->Neighbor(current_cell) == NULL) continue;
+				if (!visited[current_cell->edges[i]->Neighbor(current_cell)]) {
+					q.push(current_cell->edges[i]->Neighbor(current_cell));
+					visited[current_cell->edges[i]->Neighbor(current_cell)] = 1;
+				}
 			}
 		}
 	}

@@ -25,6 +25,7 @@ public:
 	float x;
 	float y;
 	Point2D(float x, float y);
+	Point2D() { x = y = 0; };
 };
 class LineSeg {
 	private:
@@ -37,6 +38,7 @@ class LineSeg {
 		// Second constructor takes an edge. The LineSeg created has the same
 		// start and end points as the edge.
 		LineSeg(Edge*);
+		LineSeg() {};
 		Point2D find_intersection(LineSeg);
 		bool onSeg(Point2D);
 

@@ -64,13 +64,13 @@ Point2D LineSeg::find_intersection(LineSeg l) {
 	float lm, lb, m, b; 
 
 	float dem = (end[0] - start[0]);
-	if (dem == 0) { dem += 1e-10; }
+	if (dem == 0) { dem += 1e-10;}
 	lm = lb = m = b = 0;
 	m = (end[1] - start[1]) / (dem); 
 	b = start[1] - m * start[0]; 
 
 	dem = (l.end[0] - l.start[0]);
-	if (dem == 0) { dem += 1e-10; }
+	if (dem == 0) { dem += 1e-10;}
 	lm = (l.end[1] - l.start[1]) / (dem);
 	lb = l.start[1] - lm * l.start[0];
 	//parametric form
@@ -122,7 +122,7 @@ char LineSeg::Point_Side(float x, float y) {
 		end[0] * y -
 		end[1] * x;
 
-	if (det == 0.0)
+	if (fabs(det)<1e-3)
 		return Edge::ON;
 	else if (det > 0.0)
 		return Edge::LEFT;
@@ -134,11 +134,6 @@ LineSeg::LineSeg(float* s, float* e) {
 	start[1] = s[2];
 	end[0] = e[0];
 	end[1] = e[2];
-}
-bool LineSeg::onSeg(Point2D p) {
-	bool x_mono = (start[0] >= p.x && p.x >= end[0]) || (end[0] >= p.x && p.x >= start[0]);
-	bool y_mono = (start[1] >= p.y && p.y >= end[1]) || (end[1] >= p.y && p.y >= start[1]);
-	return x_mono && y_mono;
 }
 void LineSeg::check() {
 	cout << "(" << start[0] << ", " << start[1] << ")" << "(" << end[0] << ", " << end[1] << ")" << endl;

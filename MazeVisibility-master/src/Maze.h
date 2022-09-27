@@ -23,6 +23,7 @@
 #include "Cell.h"
 #include<GL/GL.h>
 #include "LineSeg.h"
+#include <unordered_map>
 //************************************************************************
 //
 // * A class for exceptions. Used by the constructor to pass file I/O errors
@@ -101,6 +102,7 @@ class Maze {
 
 		void	draw_cell(Cell*, LineSeg, LineSeg);
 		void my_draw_cell(Cell* , LineSeg, LineSeg);
+		void bfs_draw_cell(Cell* current_cell, LineSeg Lfrustum, LineSeg Rfrustum);
 		// Save the maze to a file of the given name.
 		bool	Save(const char*);
 
@@ -140,6 +142,7 @@ class Maze {
 		static const char	Y;
 		static const char	Z;
 
+		
 		int		num_vertices;	// The number of vertices in the maze
 		Vertex	**vertices;		// An array of pointers to the vertices.
 
@@ -159,6 +162,7 @@ class Maze {
 		float t_modelview[16], t_viewerview[16];
 		void LookAt(float,float,float,float,float,float,float,float,float);
 		void Perspective(float, float, float, float);
+		
 		
 };
 
