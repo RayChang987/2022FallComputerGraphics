@@ -1,1 +1,3 @@
-# ImageEditting Maze Reversi
+# ImageEditting
+# Maze 
+# Reversi
