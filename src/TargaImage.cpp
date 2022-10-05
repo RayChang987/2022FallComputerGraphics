@@ -1,4 +1,4 @@
-﻿///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
 //
 //      TargaImage.cpp                          Author:     Stephen Chenney
 //                                              Modified:   Eric McDaniel
@@ -1310,15 +1310,14 @@ bool TargaImage::Rotate(float angleDegrees)
             }
         }
     }
-    float kernel[4][4] = {
-        {1, 2, 2, 1},
-        {2, 4, 4, 2},
-        {2, 4, 4, 2},
-        {1, 2, 2, 1}
-    };
+	float kernel[3][3] = {
+		{1.0 / 16.0, 1.0 / 8.0, 1.0 / 16.0},
+		{1.0 / 8.0, 1.0 / 4.0, 1.0 / 8.0},
+		{1.0 / 16.0, 1.0 / 8.0, 1.0 / 16.0}
+	};
     float d = 0;
-    for (int i = 0; i < 4; ++i) {
-        for (int j = 0; j < 4; ++j) {
+    for (int i = 0; i < 3; ++i) {
+        for (int j = 0; j < 3; ++j) {
             d += kernel[i][j];
         }
     }
@@ -1326,11 +1325,11 @@ bool TargaImage::Rotate(float angleDegrees)
         for (int j = 0; j < width; j++) {
             for (int k = 0; k < 4; k++) {
                 float sum = 0;
-                for (int p = -2; p < 2; ++p) {
-                    for (int q = -2; q < 2; ++q) {
+                for (int p = -1; p < 1; ++p) {
+                    for (int q = -1; q < 1; ++q) {
                         int ni = i + p, nj = j + q;
                         if (ni < 0 || nj < 0 || ni >= height || nj >= width) { continue; }
-                        sum += t2[k][ni][nj] * kernel[p + 2][q + 2];
+                        sum += t2[k][ni][nj] * kernel[p + 1][q + 1];
                     }
                 }
                 img_RGBA[k][i][j] = sum / d;
